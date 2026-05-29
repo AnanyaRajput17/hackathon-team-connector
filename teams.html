@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Teams | Hackathon Connector</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+<style>
+.team-card { position: relative; overflow: hidden; }
+.team-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.team-name { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.team-hackathon { font-size: 13px; color: var(--accent); }
+.team-leader { font-size: 13px; color: var(--muted); margin: 8px 0; }
+.team-desc { font-size: 14px; color: var(--muted); line-height: 1.5; margin-bottom: 12px; }
+.member-avatars { display: flex; gap: -8px; margin-bottom: 12px; }
+.member-avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: 2px solid var(--card);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: white;
+    margin-left: -6px;
+}
+.member-avatar:first-child { margin-left: 0; }
+.team-footer { display: flex; gap: 8px; flex-wrap: wrap; }
+.hackathon-select-bar {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.hackathon-select-bar label { color: var(--muted); font-size: 14px; margin: 0; text-transform: none; letter-spacing: 0; }
+.hackathon-select-bar select { max-width: 300px; margin: 0; }
+.tabs-bar { display: flex; gap: 4px; margin-bottom: 24px; }
+.tab-btn {
+    padding: 9px 18px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.tab-btn.active {
+    background: rgba(124,106,255,0.12);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+</style>
+</head>
+<body>
+<nav>
+    <a href="hackathons.html" class="nav-brand">🏆 HackConnect</a>
+    <div class="nav-links">
+        <a href="hackathons.html" class="nav-link">Hackathons</a>
+        <a href="teams.html" class="nav-link active">Teams</a>
+        <a href="requests.html" class="nav-link">Requests</a>
+        <a href="profile.html" class="nav-link">Profile</a>
+    </div>
+    <div class="nav-right">
+        <div class="nav-user">
+            <div class="nav-avatar" id="navAvatar">?</div>
+            <span id="navName"></span>
+        </div>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+</nav>
+
+<div class="page">
+<div class="container">
+    <div class="page-header">
+        <h1>👥 Teams</h1>
+        <p>Browse teams or create your own for a hackathon</p>
+    </div>
+
+    <!-- Hackathon Selector -->
+    <div class="hackathon-select-bar">
+        <label>Filter by Hackathon:</label>
+        <select id="hackathonFilter" onchange="loadTeams()">
+            <option value="">Loading...</option>
+        </select>
+        <button class="btn btn-primary" onclick="openCreateTeamModal()">+ Create Team</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-bar">
+        <button class="tab-btn active" onclick="switchTab('all', this)">All Teams</button>
+        <button class="tab-btn" onclick="switchTab('my', this)">My Teams</button>
+        <button class="tab-btn" onclick="switchTab('suggest', this)">💡 Suggested Teammates</button>
+    </div>
+
+    <div id="teamList" class="grid grid-2">
+        <div class="loading-state"><div class="spinner"></div> Loading...</div>
+    </div>
+</div>
+</div>
+
+<!-- Create Team Modal -->
+<div class="modal-overlay" id="createTeamModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>Create a Team</h2>
+            <button class="modal-close" onclick="closeModal('createTeamModal')">✕</button>
+        </div>
+        <div class="form-group">
+            <label>Team Name *</label>
+            <input type="text" id="tName" placeholder="Team Alpha"/>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea id="tDesc" placeholder="What are you building?"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Hackathon *</label>
+            <select id="tHackathon"></select>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="createTeam()">
+            🚀 Create Team
+        </button>
+    </div>
+</div>
+
+<!-- Join Request Modal -->
+<div class="modal-overlay" id="joinModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>Request to Join</h2>
+            <button class="modal-close" onclick="closeModal('joinModal')">✕</button>
+        </div>
+        <p class="text-muted text-sm" style="margin-bottom:16px">Sending request to: <strong id="joinTeamName"></strong></p>
+        <div class="form-group">
+            <label>Message (optional)</label>
+            <textarea id="joinMessage" placeholder="Tell them why you'd be a great fit..."></textarea>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="sendJoinRequest()">
+            Send Request
+        </button>
+    </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+<script src="api.js"></script>
+<script>
+if (!getToken()) window.location.href = 'index.html';
+
+const user = getUser();
+let currentTab = 'all';
+let selectedTeamId = null;
+let hackathonList = [];
+
+if (user) {
+    document.getElementById('navAvatar').textContent = user.name?.[0]?.toUpperCase() || '?';
+    document.getElementById('navName').textContent = user.name;
+}
+
+function logout() { clearAuth(); window.location.href = 'index.html'; }
+
+function showToast(msg, type = 'info') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.textContent = (type === 'success' ? '✅ ' : type === 'error' ? '❌ ' : 'ℹ️ ') + msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3500);
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function switchTab(tab, btn) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (tab === 'all') loadTeams();
+    else if (tab === 'my') loadMyTeams();
+    else loadSuggestions();
+}
+
+async function loadHackathons() {
+    try {
+        hackathonList = await Hackathons.getAll();
+        const sel = document.getElementById('hackathonFilter');
+        const tSel = document.getElementById('tHackathon');
+        sel.innerHTML = hackathonList.map(h =>
+            `<option value="${h.id}">${h.name}</option>`).join('');
+        tSel.innerHTML = hackathonList.map(h =>
+            `<option value="${h.id}">${h.name}</option>`).join('');
+
+        // Pre-select from hackathons page
+        const saved = localStorage.getItem('selectedHackathon');
+        if (saved) { sel.value = saved; localStorage.removeItem('selectedHackathon'); }
+
+        loadTeams();
+    } catch(e) {
+        showToast('Could not load hackathons', 'error');
+    }
+}
+
+function renderTeams(teams) {
+    const el = document.getElementById('teamList');
+    if (!teams.length) {
+        el.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+            <div class="icon">👥</div>
+            <h3>No teams found</h3>
+            <p>Create the first team for this hackathon!</p>
+        </div>`;
+        return;
+    }
+    el.innerHTML = teams.map(t => `
+        <div class="card team-card">
+            <div class="team-card-header">
+                <div>
+                    <div class="team-name">${t.name}</div>
+                    <div class="team-hackathon">🏆 ${t.hackathon?.name || ''}</div>
+                </div>
+                <span class="badge ${t.isOpen ? 'badge-success' : 'badge-error'}">
+                    ${t.isOpen ? 'Open' : 'Full'}
+                </span>
+            </div>
+            <div class="team-leader">👑 Led by ${t.leader?.name || 'Unknown'}</div>
+            ${t.description ? `<div class="team-desc">${t.description}</div>` : ''}
+
+            <div class="flex items-center gap-8" style="margin-bottom:12px">
+                <div class="member-avatars">
+                    ${(t.members || []).slice(0,5).map(m =>
+                        `<div class="member-avatar" title="${m.name}">${m.name?.[0]?.toUpperCase() || '?'}</div>`
+                    ).join('')}
+                </div>
+                <span class="text-sm text-muted">${t.memberCount} / ${t.hackathon?.maxTeamSize || '?'} members</span>
+            </div>
+
+            ${t.requiredSkills?.length ? `
+                <div class="skill-tags">
+                    ${t.requiredSkills.map(s => `<span class="skill-tag">${s.name}</span>`).join('')}
+                </div>` : ''}
+
+            <div class="divider"></div>
+            <div class="team-footer">
+                ${t.isOpen && t.leader?.id !== user?.id ? `
+                    <button class="btn btn-primary btn-sm"
+                        onclick="openJoinModal(${t.id}, '${t.name}')">
+                        🙋 Request to Join
+                    </button>` : ''}
+                <button class="btn btn-secondary btn-sm"
+                    onclick="window.location.href='chat.html?teamId=${t.id}&teamName=${encodeURIComponent(t.name)}'">
+                    💬 Chat
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderUsers(users) {
+    const el = document.getElementById('teamList');
+    if (!users.length) {
+        el.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+            <div class="icon">💡</div>
+            <h3>No suggestions yet</h3>
+            <p>Add skills to your profile for better matches!</p>
+        </div>`;
+        return;
+    }
+    el.innerHTML = `
+        <div style="grid-column:1/-1; margin-bottom:8px">
+            <p class="text-muted text-sm">Suggested teammates based on skill requirements</p>
+        </div>` +
+    users.map(u => `
+        <div class="card">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px">
+                <div class="nav-avatar" style="width:44px;height:44px;font-size:16px">
+                    ${u.name?.[0]?.toUpperCase() || '?'}
+                </div>
+                <div>
+                    <div style="font-weight:600">${u.name}</div>
+                    <div class="text-sm text-muted">${u.college || ''}</div>
+                </div>
+            </div>
+            ${u.bio ? `<p class="text-sm text-muted" style="margin-bottom:12px">${u.bio}</p>` : ''}
+            ${u.skills?.length ? `
+                <div class="skill-tags">
+                    ${u.skills.map(s => `<span class="skill-tag">${s.name}</span>`).join('')}
+                </div>` : ''}
+        </div>
+    `).join('');
+}
+
+async function loadTeams() {
+    const hackathonId = document.getElementById('hackathonFilter').value;
+    if (!hackathonId) return;
+    document.getElementById('teamList').innerHTML =
+        `<div class="loading-state"><div class="spinner"></div> Loading teams...</div>`;
+    try {
+        const teams = await Teams.getByHackathon(hackathonId);
+        renderTeams(teams);
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function loadMyTeams() {
+    document.getElementById('teamList').innerHTML =
+        `<div class="loading-state"><div class="spinner"></div> Loading your teams...</div>`;
+    try {
+        const teams = await Teams.getMyTeams();
+        renderTeams(teams);
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function loadSuggestions() {
+    const hackathonId = document.getElementById('hackathonFilter').value;
+    if (!hackathonId) return showToast('Select a hackathon first', 'info');
+    document.getElementById('teamList').innerHTML =
+        `<div class="loading-state"><div class="spinner"></div> Finding matches...</div>`;
+    try {
+        const users = await Teams.suggest(hackathonId);
+        renderUsers(users);
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+function openCreateTeamModal() {
+    document.getElementById('createTeamModal').classList.add('open');
+}
+
+async function createTeam() {
+    const name = document.getElementById('tName').value.trim();
+    const hackathonId = document.getElementById('tHackathon').value;
+    if (!name || !hackathonId) return showToast('Fill required fields', 'error');
+    try {
+        await Teams.create({
+            name,
+            description: document.getElementById('tDesc').value,
+            hackathonId: parseInt(hackathonId),
+        });
+        showToast('Team created! 🎉', 'success');
+        closeModal('createTeamModal');
+        loadTeams();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+function openJoinModal(teamId, teamName) {
+    selectedTeamId = teamId;
+    document.getElementById('joinTeamName').textContent = teamName;
+    document.getElementById('joinMessage').value = '';
+    document.getElementById('joinModal').classList.add('open');
+}
+
+async function sendJoinRequest() {
+    try {
+        await Requests.send({
+            teamId: selectedTeamId,
+            message: document.getElementById('joinMessage').value
+        });
+        showToast('Join request sent! ✅', 'success');
+        closeModal('joinModal');
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+loadHackathons();
+</script>
+</body>
+</html>

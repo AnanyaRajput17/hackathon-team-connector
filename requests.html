@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Requests | Hackathon Connector</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+<style>
+.request-card { margin-bottom: 12px; }
+.req-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.req-user { display: flex; align-items: center; gap: 10px; }
+.req-user-info strong { display: block; font-size: 15px; }
+.req-user-info span { font-size: 13px; color: var(--muted); }
+.req-team { font-size: 14px; color: var(--accent); margin-bottom: 6px; }
+.req-message { font-size: 14px; color: var(--muted); font-style: italic; margin-bottom: 12px; }
+.req-actions { display: flex; gap: 8px; }
+.req-date { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<nav>
+    <a href="hackathons.html" class="nav-brand">🏆 HackConnect</a>
+    <div class="nav-links">
+        <a href="hackathons.html" class="nav-link">Hackathons</a>
+        <a href="teams.html" class="nav-link">Teams</a>
+        <a href="requests.html" class="nav-link active">Requests</a>
+        <a href="profile.html" class="nav-link">Profile</a>
+    </div>
+    <div class="nav-right">
+        <div class="nav-user">
+            <div class="nav-avatar" id="navAvatar">?</div>
+            <span id="navName"></span>
+        </div>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+</nav>
+
+<div class="page">
+<div class="container">
+    <div class="page-header">
+        <h1>📬 Join Requests</h1>
+        <p>Manage incoming requests to your teams and track your sent requests</p>
+    </div>
+
+    <div class="tabs-bar" style="display:flex; gap:4px; margin-bottom:24px">
+        <button class="tab-btn active" onclick="switchTab('incoming', this)">
+            📥 Incoming Requests
+        </button>
+        <button class="tab-btn" onclick="switchTab('sent', this)">
+            📤 Sent Requests
+        </button>
+    </div>
+
+    <div id="requestList"></div>
+</div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+<script src="api.js"></script>
+<script>
+if (!getToken()) window.location.href = 'index.html';
+
+const user = getUser();
+if (user) {
+    document.getElementById('navAvatar').textContent = user.name?.[0]?.toUpperCase() || '?';
+    document.getElementById('navName').textContent = user.name;
+}
+
+function logout() { clearAuth(); window.location.href = 'index.html'; }
+
+function showToast(msg, type = 'info') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.textContent = (type === 'success' ? '✅ ' : type === 'error' ? '❌ ' : 'ℹ️ ') + msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3500);
+}
+
+let currentTab = 'incoming';
+
+function switchTab(tab, btn) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    tab === 'incoming' ? loadIncoming() : loadSent();
+}
+
+function statusBadge(status) {
+    const map = {
+        PENDING: 'badge-warning',
+        ACCEPTED: 'badge-success',
+        REJECTED: 'badge-error'
+    };
+    return `<span class="badge ${map[status] || 'badge-muted'}">${status}</span>`;
+}
+
+function renderIncoming(requests) {
+    const el = document.getElementById('requestList');
+    if (!requests.length) {
+        el.innerHTML = `<div class="empty-state">
+            <div class="icon">📭</div>
+            <h3>No incoming requests</h3>
+            <p>When students request to join your team, they'll appear here.</p>
+        </div>`;
+        return;
+    }
+    el.innerHTML = requests.map(r => `
+        <div class="card request-card">
+            <div class="req-header">
+                <div class="req-user">
+                    <div class="nav-avatar" style="width:40px;height:40px;font-size:15px">
+                        ${r.sender?.name?.[0]?.toUpperCase() || '?'}
+                    </div>
+                    <div class="req-user-info">
+                        <strong>${r.sender?.name || 'Unknown'}</strong>
+                        <span>${r.sender?.email || ''}</span>
+                    </div>
+                </div>
+                ${statusBadge(r.status)}
+            </div>
+            <div class="req-team">wants to join → <strong>${r.team?.name}</strong></div>
+            ${r.message ? `<div class="req-message">"${r.message}"</div>` : ''}
+            <div style="display:flex; justify-content:space-between; align-items:center">
+                <span class="req-date">${r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}</span>
+                ${r.status === 'PENDING' ? `
+                    <div class="req-actions">
+                        <button class="btn btn-success btn-sm"
+                            onclick="respond(${r.id}, 'ACCEPTED')">✓ Accept</button>
+                        <button class="btn btn-danger btn-sm"
+                            onclick="respond(${r.id}, 'REJECTED')">✕ Reject</button>
+                    </div>` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderSent(requests) {
+    const el = document.getElementById('requestList');
+    if (!requests.length) {
+        el.innerHTML = `<div class="empty-state">
+            <div class="icon">📤</div>
+            <h3>No sent requests</h3>
+            <p>Browse teams and send join requests!</p>
+        </div>`;
+        return;
+    }
+    el.innerHTML = requests.map(r => `
+        <div class="card request-card">
+            <div class="req-header">
+                <div>
+                    <div class="req-team" style="font-size:16px;font-weight:600;color:var(--text)">
+                        ${r.team?.name}
+                    </div>
+                    <div class="req-team">🏆 ${r.team?.hackathon?.name || ''}</div>
+                </div>
+                ${statusBadge(r.status)}
+            </div>
+            ${r.message ? `<div class="req-message">"${r.message}"</div>` : ''}
+            <span class="req-date">${r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}</span>
+        </div>
+    `).join('');
+}
+
+async function loadIncoming() {
+    document.getElementById('requestList').innerHTML =
+        `<div class="loading-state"><div class="spinner"></div> Loading...</div>`;
+    try {
+        const reqs = await Requests.incoming();
+        renderIncoming(reqs);
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function loadSent() {
+    document.getElementById('requestList').innerHTML =
+        `<div class="loading-state"><div class="spinner"></div> Loading...</div>`;
+    try {
+        const reqs = await Requests.sent();
+        renderSent(reqs);
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function respond(requestId, status) {
+    try {
+        await Requests.respond({ requestId, status });
+        showToast(status === 'ACCEPTED' ? 'Request accepted! 🎉' : 'Request rejected', 
+            status === 'ACCEPTED' ? 'success' : 'info');
+        loadIncoming();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+loadIncoming();
+</script>
+</body>
+</html>

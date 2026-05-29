@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Hackathons | Hackathon Connector</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+<style>
+.hackathon-card { cursor: pointer; position: relative; overflow: hidden; }
+.hackathon-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    opacity: 0; transition: opacity 0.2s;
+}
+.hackathon-card:hover::before { opacity: 1; }
+.card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px; font-weight: 700;
+    margin-bottom: 8px;
+}
+.card-meta {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 16px;
+}
+.card-meta span { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+.card-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+.card-footer { display: flex; align-items: center; justify-content: space-between; }
+.stat-row { display: flex; gap: 16px; }
+.stat { text-align: center; }
+.stat-val { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--accent); }
+.stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.top-bar {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+.filter-tabs { display: flex; gap: 4px; }
+.filter-tab {
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.filter-tab.active {
+    background: rgba(124,106,255,0.12);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+</style>
+</head>
+<body>
+<!-- Navbar -->
+<nav>
+    <a href="hackathons.html" class="nav-brand">🏆 HackConnect</a>
+    <div class="nav-links">
+        <a href="hackathons.html" class="nav-link active">Hackathons</a>
+        <a href="teams.html" class="nav-link">Teams</a>
+        <a href="requests.html" class="nav-link">Requests</a>
+        <a href="profile.html" class="nav-link">Profile</a>
+    </div>
+    <div class="nav-right">
+        <div class="nav-user">
+            <div class="nav-avatar" id="navAvatar">?</div>
+            <span id="navName">Loading...</span>
+        </div>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+</nav>
+
+<div class="page">
+    <div class="container">
+        <div class="page-header">
+            <h1>🏆 Hackathons</h1>
+            <p>Discover upcoming hackathons and find your team</p>
+        </div>
+
+        <div class="top-bar">
+            <div class="filter-tabs">
+                <button class="filter-tab active" onclick="filterHackathons('all', this)">All</button>
+                <button class="filter-tab" onclick="filterHackathons('UPCOMING', this)">Upcoming</button>
+                <button class="filter-tab" onclick="filterHackathons('ONGOING', this)">Ongoing</button>
+                <button class="filter-tab" onclick="filterHackathons('COMPLETED', this)">Completed</button>
+            </div>
+            <button class="btn btn-primary" onclick="openCreateModal()">+ Create Hackathon</button>
+        </div>
+
+        <div id="hackathonList" class="grid grid-2">
+            <div class="loading-state"><div class="spinner"></div> Loading hackathons...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Hackathon Modal -->
+<div class="modal-overlay" id="createModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>Create Hackathon</h2>
+            <button class="modal-close" onclick="closeModal('createModal')">✕</button>
+        </div>
+        <div class="form-group">
+            <label>Hackathon Name *</label>
+            <input type="text" id="hName" placeholder="Smart India Hackathon 2025"/>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea id="hDesc" placeholder="Describe the hackathon..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Theme</label>
+            <input type="text" id="hTheme" placeholder="AI & ML, Web3, Sustainability..."/>
+        </div>
+        <div class="form-group">
+            <label>Venue</label>
+            <input type="text" id="hVenue" placeholder="Delhi, Online, Mumbai..."/>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-group">
+                <label>Start Date *</label>
+                <input type="date" id="hStart"/>
+            </div>
+            <div class="form-group">
+                <label>End Date *</label>
+                <input type="date" id="hEnd"/>
+            </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-group">
+                <label>Min Team Size</label>
+                <input type="number" id="hMinSize" value="2" min="1"/>
+            </div>
+            <div class="form-group">
+                <label>Max Team Size</label>
+                <input type="number" id="hMaxSize" value="4" min="2"/>
+            </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="createHackathon()">
+            🚀 Create Hackathon
+        </button>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="api.js"></script>
+<script>
+// Auth guard
+if (!getToken()) window.location.href = 'index.html';
+
+const user = getUser();
+let allHackathons = [];
+
+// Set nav user info
+if (user) {
+    document.getElementById('navAvatar').textContent = user.name?.[0]?.toUpperCase() || '?';
+    document.getElementById('navName').textContent = user.name || user.email;
+}
+
+function logout() {
+    clearAuth();
+    window.location.href = 'index.html';
+}
+
+function showToast(msg, type = 'info') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.textContent = (type === 'success' ? '✅ ' : type === 'error' ? '❌ ' : 'ℹ️ ') + msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3500);
+}
+
+function openCreateModal() { document.getElementById('createModal').classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function filterHackathons(status, btn) {
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    const filtered = status === 'all' ? allHackathons
+        : allHackathons.filter(h => h.status === status);
+    renderHackathons(filtered);
+}
+
+function renderHackathons(list) {
+    const el = document.getElementById('hackathonList');
+    if (!list.length) {
+        el.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+            <div class="icon">🏆</div>
+            <h3>No hackathons found</h3>
+            <p>Be the first to create one!</p>
+        </div>`;
+        return;
+    }
+    el.innerHTML = list.map(h => `
+        <div class="card hackathon-card" onclick="goToTeams(${h.id})">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px">
+                <span class="badge ${h.status === 'UPCOMING' ? 'badge-success' : h.status === 'ONGOING' ? 'badge-accent' : 'badge-muted'}">
+                    ${h.status}
+                </span>
+                <span class="text-sm text-muted">👥 Max ${h.maxTeamSize} members</span>
+            </div>
+            <div class="card-title">${h.name}</div>
+            <div class="card-meta">
+                ${h.theme ? `<span>🎯 ${h.theme}</span>` : ''}
+                ${h.venue ? `<span>📍 ${h.venue}</span>` : ''}
+                ${h.startDate ? `<span>📅 ${h.startDate}</span>` : ''}
+            </div>
+            ${h.description ? `<div class="card-desc">${h.description}</div>` : ''}
+            <div class="card-footer">
+                <div class="stat-row">
+                    <div class="stat">
+                        <div class="stat-val">${h.minTeamSize}–${h.maxTeamSize}</div>
+                        <div class="stat-label">Team Size</div>
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); goToTeams(${h.id})">
+                    View Teams →
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function goToTeams(hackathonId) {
+    localStorage.setItem('selectedHackathon', hackathonId);
+    window.location.href = 'teams.html';
+}
+
+async function loadHackathons() {
+    try {
+        allHackathons = await Hackathons.getAll();
+        renderHackathons(allHackathons);
+    } catch (e) {
+        document.getElementById('hackathonList').innerHTML =
+            `<div class="empty-state" style="grid-column:1/-1">
+                <div class="icon">⚠️</div>
+                <h3>Could not load hackathons</h3>
+                <p>${e.message}</p>
+            </div>`;
+    }
+}
+
+async function createHackathon() {
+    const name = document.getElementById('hName').value.trim();
+    const startDate = document.getElementById('hStart').value;
+    const endDate = document.getElementById('hEnd').value;
+
+    if (!name || !startDate || !endDate)
+        return showToast('Please fill required fields', 'error');
+
+    try {
+        await Hackathons.create({
+            name,
+            description: document.getElementById('hDesc').value,
+            theme: document.getElementById('hTheme').value,
+            venue: document.getElementById('hVenue').value,
+            startDate, endDate,
+            minTeamSize: parseInt(document.getElementById('hMinSize').value),
+            maxTeamSize: parseInt(document.getElementById('hMaxSize').value),
+        });
+        showToast('Hackathon created!', 'success');
+        closeModal('createModal');
+        loadHackathons();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+loadHackathons();
+</script>
+</body>
+</html>

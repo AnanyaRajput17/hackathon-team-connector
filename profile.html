@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Profile | Hackathon Connector</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+<style>
+.profile-layout { display: grid; grid-template-columns: 300px 1fr; gap: 24px; }
+@media(max-width:768px) { .profile-layout { grid-template-columns: 1fr; } }
+.profile-sidebar { }
+.avatar-big {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; font-weight: 800; color: white;
+    margin: 0 auto 16px;
+}
+.profile-name { text-align:center; font-family:'Syne',sans-serif; font-size:22px; font-weight:700; }
+.profile-email { text-align:center; color:var(--muted); font-size:14px; margin-top:4px; }
+.profile-college { text-align:center; color:var(--accent); font-size:13px; margin-top:6px; }
+.skills-section { margin-top:20px; }
+.skill-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--surface);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+.skill-remove {
+    background: none; border: none;
+    color: var(--muted); cursor: pointer; font-size: 16px;
+    padding: 0 4px;
+    transition: color 0.2s;
+}
+.skill-remove:hover { color: var(--error); }
+.add-skill-row { display: flex; gap: 8px; margin-top: 8px; }
+.add-skill-row select { flex: 1; margin: 0; }
+</style>
+</head>
+<body>
+<nav>
+    <a href="hackathons.html" class="nav-brand">🏆 HackConnect</a>
+    <div class="nav-links">
+        <a href="hackathons.html" class="nav-link">Hackathons</a>
+        <a href="teams.html" class="nav-link">Teams</a>
+        <a href="requests.html" class="nav-link">Requests</a>
+        <a href="profile.html" class="nav-link active">Profile</a>
+    </div>
+    <div class="nav-right">
+        <div class="nav-user">
+            <div class="nav-avatar" id="navAvatar">?</div>
+            <span id="navName"></span>
+        </div>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+</nav>
+
+<div class="page">
+<div class="container">
+    <div class="page-header">
+        <h1>👤 My Profile</h1>
+        <p>Manage your profile and skills</p>
+    </div>
+
+    <div class="profile-layout">
+        <!-- Sidebar -->
+        <div>
+            <div class="card" style="text-align:center; margin-bottom:20px">
+                <div class="avatar-big" id="bigAvatar">?</div>
+                <div class="profile-name" id="profileName">Loading...</div>
+                <div class="profile-email" id="profileEmail"></div>
+                <div class="profile-college" id="profileCollege"></div>
+            </div>
+
+            <!-- Skills Card -->
+            <div class="card">
+                <div class="flex items-center justify-between" style="margin-bottom:16px">
+                    <h3 style="font-family:'Syne',sans-serif; font-size:16px; font-weight:700">
+                        🛠️ My Skills
+                    </h3>
+                </div>
+                <div id="skillList"></div>
+                <div class="add-skill-row">
+                    <select id="skillSelect">
+                        <option value="">Add a skill...</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm" onclick="addSkill()">+</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Form -->
+        <div class="card">
+            <h3 style="font-family:'Syne',sans-serif; font-size:18px; font-weight:700; margin-bottom:24px">
+                Edit Profile
+            </h3>
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="pName" placeholder="Your full name"/>
+            </div>
+            <div class="form-group">
+                <label>Email (read-only)</label>
+                <input type="email" id="pEmail" readonly style="opacity:0.6; cursor:not-allowed"/>
+            </div>
+            <div class="form-group">
+                <label>College</label>
+                <input type="text" id="pCollege" placeholder="Your college name"/>
+            </div>
+            <div class="form-group">
+                <label>Bio</label>
+                <textarea id="pBio" placeholder="Tell your team about yourself — skills, experience, what you're passionate about..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>GitHub URL</label>
+                <input type="url" id="pGithub" placeholder="https://github.com/yourusername"/>
+            </div>
+            <div class="form-group">
+                <label>LinkedIn URL</label>
+                <input type="url" id="pLinkedin" placeholder="https://linkedin.com/in/yourusername"/>
+            </div>
+            <button class="btn btn-primary" onclick="saveProfile()">
+                💾 Save Profile
+            </button>
+        </div>
+    </div>
+</div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+<script src="api.js"></script>
+<script>
+if (!getToken()) window.location.href = 'index.html';
+
+const user = getUser();
+let mySkillIds = [];
+let allSkills = [];
+
+if (user) {
+    document.getElementById('navAvatar').textContent = user.name?.[0]?.toUpperCase() || '?';
+    document.getElementById('navName').textContent = user.name;
+}
+
+function logout() { clearAuth(); window.location.href = 'index.html'; }
+
+function showToast(msg, type = 'info') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.textContent = (type === 'success' ? '✅ ' : type === 'error' ? '❌ ' : 'ℹ️ ') + msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3500);
+}
+
+function renderSkills(skills) {
+    const el = document.getElementById('skillList');
+    if (!skills.length) {
+        el.innerHTML = `<p class="text-sm text-muted" style="margin-bottom:12px">No skills added yet</p>`;
+        return;
+    }
+    el.innerHTML = skills.map(s => `
+        <div class="skill-item">
+            <span>${s.name} <span class="text-muted text-sm">${s.category ? '· ' + s.category : ''}</span></span>
+            <button class="skill-remove" onclick="removeSkill(${s.id})" title="Remove">×</button>
+        </div>
+    `).join('');
+}
+
+async function loadProfile() {
+    try {
+        const profile = await Users.getMe();
+        document.getElementById('bigAvatar').textContent = profile.name?.[0]?.toUpperCase() || '?';
+        document.getElementById('profileName').textContent = profile.name;
+        document.getElementById('profileEmail').textContent = profile.email;
+        document.getElementById('profileCollege').textContent = profile.college || '';
+        document.getElementById('pName').value = profile.name || '';
+        document.getElementById('pEmail').value = profile.email || '';
+        document.getElementById('pCollege').value = profile.college || '';
+        document.getElementById('pBio').value = profile.bio || '';
+        document.getElementById('pGithub').value = profile.githubUrl || '';
+        document.getElementById('pLinkedin').value = profile.linkedinUrl || '';
+
+        mySkillIds = (profile.skills || []).map(s => s.id);
+        renderSkills(profile.skills || []);
+        updateSkillDropdown(profile.skills || []);
+    } catch(e) {
+        showToast('Could not load profile', 'error');
+    }
+}
+
+async function loadSkills() {
+    try {
+        allSkills = await Skills.getAll();
+        updateSkillDropdown([]);
+    } catch(e) {}
+}
+
+function updateSkillDropdown(currentSkills) {
+    const currentIds = currentSkills.map(s => s.id);
+    const sel = document.getElementById('skillSelect');
+    sel.innerHTML = `<option value="">Add a skill...</option>` +
+        allSkills.filter(s => !currentIds.includes(s.id))
+            .map(s => `<option value="${s.id}">${s.name} ${s.category ? '('+s.category+')' : ''}</option>`)
+            .join('');
+}
+
+async function addSkill() {
+    const skillId = parseInt(document.getElementById('skillSelect').value);
+    if (!skillId) return;
+    if (!mySkillIds.includes(skillId)) mySkillIds.push(skillId);
+    await saveSkills();
+    loadProfile();
+}
+
+async function removeSkill(skillId) {
+    mySkillIds = mySkillIds.filter(id => id !== skillId);
+    await saveSkills();
+    loadProfile();
+}
+
+async function saveSkills() {
+    try {
+        await Users.update({ skillIds: mySkillIds });
+    } catch(e) {
+        showToast('Could not update skills', 'error');
+    }
+}
+
+async function saveProfile() {
+    try {
+        await Users.update({
+            name: document.getElementById('pName').value,
+            bio: document.getElementById('pBio').value,
+            college: document.getElementById('pCollege').value,
+            githubUrl: document.getElementById('pGithub').value,
+            linkedinUrl: document.getElementById('pLinkedin').value,
+            skillIds: mySkillIds,
+        });
+
+        // Update local storage
+        const updated = { ...user,
+            name: document.getElementById('pName').value,
+            college: document.getElementById('pCollege').value,
+        };
+        localStorage.setItem('user', JSON.stringify(updated));
+
+        showToast('Profile saved! ✅', 'success');
+        loadProfile();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+loadSkills();
+loadProfile();
+</script>
+</body>
+</html>
